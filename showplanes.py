@@ -1,6 +1,8 @@
 import geocoder
 import requests
 import math
+import time
+import os
 
 def get_user_location():
     location = geocoder.ip('me')
@@ -43,6 +45,11 @@ def retreive_flights():
 
         print(f"{callsign} {alt_ft:.0f} ft")
 
+def clear_terminal():
+    os.system("cls")
 
 if __name__ == "__main__":
-    retreive_flights()
+    while(1) :
+        os.system("cls")
+        retreive_flights()
+        time.sleep(4)

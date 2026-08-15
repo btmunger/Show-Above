@@ -1,6 +1,11 @@
 # A project by Brian Munger
 
-import geocoder
+from winrt.windows.devices.geolocation import (
+    Geolocator,
+    PositionAccuracy,
+    GeolocationAccessStatus
+)
+
 import requests
 import math
 import time
@@ -14,11 +19,29 @@ def get_user_location():
     global lat
     global lng 
 
-    # Use geocoder to update location
-    location = geocoder.ip('me')
-    lat = location.lat
-    lng = location.lng
+    # Request permission to access Windows location services
+    access = Geolocator.request_access_async().get()
 
+    # Throw error if geolocation access is denied 
+    if access != GeolocationAccessStatus.ALLOWED:
+        print("Unable to access Windows location services.")
+        print(f"Permission status: {access}")
+        return 
+    
+    # Create locator object, and set accuracy to high
+    locator = Geolocator()
+    locator.desired_accuracy = PositionAccuracy.HIGH
+
+    # Get current position
+    position = locator.get_geoposition_async().get()
+    coordinate = position.coordinate
+    lat = round(coordinate.latitude, 2) 
+    lng = round(coordinate.longitude, 2)
+
+    print(lat, lng)
+    #time.sleep(5)
+
+# Method for getting the origin airport information
 def get_origin_airport(icao24):
     now = int(time.time())
     one_hour_ago = now - 3600
@@ -55,7 +78,7 @@ def retreive_flights():
     global lng
 
     # Define boundaries (4 miles)
-    delta_mi = 4
+    delta_mi = 20
     delta_lat = delta_mi / 69.0
     delta_lon = delta_mi / (69.0 * math.cos(math.radians(lat)))
 
@@ -96,7 +119,7 @@ def retreive_flights():
 
         dep, arr = get_origin_airport(icao24)
 
-        print(f"{callsign} {alt_ft:.0f} ft from {dep} to {arr}")
+        print(f"{callsign} {alt_ft:.0f} ft from {dep}")
 
 # Run in loop displaying the current plane above
 if __name__ == "__main__":
@@ -104,4 +127,4 @@ if __name__ == "__main__":
     while(1) :
         os.system("cls")
         retreive_flights()
-        time.sleep(8)
+        time.sleep(10)

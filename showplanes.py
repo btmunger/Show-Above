@@ -6,16 +6,69 @@ from winrt.windows.devices.geolocation import (
     GeolocationAccessStatus
 )
 
+from sys import platform
 import requests
 import math
 import time
 import os
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 lat = 0.0
 lng = 0.0
 
+# Retrieve operating sys specific path
+def path_from_os():
+    # Linux or Mac
+    if platform == "linux" or platform == "linux2" or platform == "darwin":     
+        return "/dev/null"
+    # Windows
+    elif platform == "win32":
+        return "NUL"
+    # Not recognized -> default Windows
+    else:
+        print("\nCould not determine operating system. Using default option of Windows.")
+        return "NUL"
+
+# Method for setting up the Selenium Webdriver 
+def init_webdriver(): 
+    # Selenium Options, run headless (in background), ignore errors
+    options = Options()
+    #options.add_argument("--headless")          # Comment the next two arguments to have the webdriver run on your screen
+    options.add_argument("--disable-gpu")
+    options.add_argument("start-maximized")
+    options.add_experimental_option(
+        "prefs", {
+            # Block image loading
+            "profile.managed_default_content_settings.images": 2,
+        }
+    )
+
+    # Make Selenium less detectable as bot activity
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    
+    # Disable Chronium/Selenium log messages
+    options.add_argument("--ignore-certificate-errors")
+    options.add_argument('--log-level=3') 
+    options.add_argument("--disable-logging")  
+    options.add_argument("--disable-speech-api")  
+    options.add_argument("--disable-features=MediaSessionService,SpeechRecognition")  
+
+    # Chrome web driver set to Selenium Service
+    log_path = path_from_os() # send logs to different places (dev/null or NUL) depending on os type
+    service = Service(log_path = log_path) 
+    driver = webdriver.Chrome(service=service, options=options)
+
+    return driver
+
 # Method for getting the current longitude and latitude of user
-def get_user_location():
+def set_user_location():
     global lat
     global lng 
 
@@ -73,7 +126,7 @@ def get_origin_airport(icao24):
     return "Unknown", "Unknown"
 
 # Method for retreiving flights above the user in a certain radius
-def retreive_flights():
+def retreive_flights(driver):
     global lat
     global lng
 
@@ -110,21 +163,42 @@ def retreive_flights():
 
     # Print callsign and altitude
     for plane in data.get("states", []):
-        icao24 = plane[0]
         callsign = plane[1].strip() if plane[1] else "N/A"
 
         alt_m = plane[7] if plane[7] is not None else 0.0
         # Convert from meters to feet
         alt_ft = alt_m * 3.28084    
 
-        dep, arr = get_origin_airport(icao24)
+        origin, dest = find_origin_dest(callsign, driver)
 
-        print(f"{callsign} {alt_ft:.0f} ft from {dep}")
+        print(f"{callsign} {alt_ft:.0f} ft from {origin} to {dest}")
+        #print(f"{callsign} {alt_ft:.0f} ft:")
+
+def find_origin_dest(callsign, driver):
+    origin = "UNKNOWN"
+    dest = "UNKNOWN"
+
+    url = f"https://www.flightaware.com/live/flight/{callsign}"
+    driver.get(url)
+    wait = WebDriverWait(driver, 10)
+
+    code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryCity")))
+    print(len(code_items))
+    print(code_items[0].text)
+    origin = code_items[0].text
+    dest = code_items[1].text
+
+    return origin, dest
+
 
 # Run in loop displaying the current plane above
 if __name__ == "__main__":
-    get_user_location()
+    driver = init_webdriver()
+    set_user_location()
+
     while(1) :
         os.system("cls")
-        retreive_flights()
+        retreive_flights(driver)
         time.sleep(10)
+
+    driver.quit()

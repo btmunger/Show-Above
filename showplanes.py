@@ -170,18 +170,19 @@ def retreive_flights(driver):
         # Convert from meters to feet
         alt_ft = alt_m * 3.28084    
 
-        origin, dest = find_origin_dest(callsign, driver)
+        ret_code, origin, dest = find_origin_dest(callsign, driver)
 
-        print(f"{callsign} {alt_ft:.0f} ft from {origin} to {dest}")
-        #print(f"{callsign} {alt_ft:.0f} ft:")
+        if (ret_code == 200):
+            print(f"{callsign} {alt_ft:.0f} ft from {origin} to {dest}")
 
 def find_origin_dest(callsign, driver):
-    origin = "UNKNOWN"
-    dest = "UNKNOWN"
+    default = "UNKNOWN"
+    origin = default
+    dest = default
 
     url = f"https://www.flightaware.com/live/flight/{callsign}"
     driver.get(url)
-    wait = WebDriverWait(driver, 10)
+    wait = WebDriverWait(driver, 3)
 
     # city name: city_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryCity")))
     try: 
@@ -190,12 +191,21 @@ def find_origin_dest(callsign, driver):
         origin = code_items[0].text[-3:]
         dest = code_items[1].text[-3:]
     except TimeoutException:
-        # General aviation aircraft
-        code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "text-bold")))
-        print(len(code_items))
-        origin = code_items[0].text
+        try:
+            # General aviation aircraft
+            code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "displayFlexElementContainer")))
 
-    return origin, dest
+            origin = code_items[0].get_attribute("textContent").strip()
+            if (len(code_items) > 2):
+                dest = code_items[1].get_attribute("textContent").strip()
+        except TimeoutException:
+                print(f"SKIPPING {callsign}...")
+                return 404, origin, dest
+
+    if (len(dest) < 1 or dest == "last seen near"):
+        dest = default
+
+    return 200, origin, dest
 
 
 # Run in loop displaying the current plane above

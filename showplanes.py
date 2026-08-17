@@ -18,6 +18,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 lat = 0.0
 lng = 0.0
@@ -182,11 +183,17 @@ def find_origin_dest(callsign, driver):
     driver.get(url)
     wait = WebDriverWait(driver, 10)
 
-    code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryCity")))
-    print(len(code_items))
-    print(code_items[0].text)
-    origin = code_items[0].text
-    dest = code_items[1].text
+    # city name: city_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryCity")))
+    try: 
+        # Commercial aircraft 
+        code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryAirportLink")))
+        origin = code_items[0].text[-3:]
+        dest = code_items[1].text[-3:]
+    except TimeoutException:
+        # General aviation aircraft
+        code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "text-bold")))
+        print(len(code_items))
+        origin = code_items[0].text
 
     return origin, dest
 
@@ -196,9 +203,11 @@ if __name__ == "__main__":
     driver = init_webdriver()
     set_user_location()
 
-    while(1) :
-        os.system("cls")
-        retreive_flights(driver)
-        time.sleep(10)
-
-    driver.quit()
+    try: 
+        while(1) :
+            os.system("cls")
+            retreive_flights(driver)
+            time.sleep(30)
+    except KeyboardInterrupt:
+        # Close driver if user ends program run
+        driver.quit()

@@ -36,6 +36,7 @@ def path_from_os():
         print("\nCould not determine operating system. Using default option of Windows.")
         return "NUL"
 
+
 # Method for setting up the Selenium Webdriver 
 def init_webdriver(): 
     # Selenium Options, run headless (in background), ignore errors
@@ -68,6 +69,7 @@ def init_webdriver():
 
     return driver
 
+
 # Method for getting the current longitude and latitude of user
 def set_user_location():
     global lat
@@ -94,6 +96,7 @@ def set_user_location():
 
     print(lat, lng)
     #time.sleep(5)
+
 
 # Method for getting the origin airport information
 def get_origin_airport(icao24):
@@ -125,6 +128,7 @@ def get_origin_airport(icao24):
         )
 
     return "Unknown", "Unknown"
+
 
 # Method for retreiving flights above the user in a certain radius
 def retreive_flights(driver):
@@ -175,16 +179,17 @@ def retreive_flights(driver):
         if (ret_code == 200):
             print(f"{callsign} {alt_ft:.0f} ft from {origin} to {dest}")
 
+
 def find_origin_dest(callsign, driver):
     default = "UNKNOWN"
     origin = default
     dest = default
 
+    # Scrape FlightAware for aircraft origin and destination info
     url = f"https://www.flightaware.com/live/flight/{callsign}"
     driver.get(url)
     wait = WebDriverWait(driver, 3)
 
-    # city name: city_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryCity")))
     try: 
         # Commercial aircraft 
         code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryAirportLink")))
@@ -194,17 +199,24 @@ def find_origin_dest(callsign, driver):
         try:
             # General aviation aircraft
             code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "displayFlexElementContainer")))
-
             origin = code_items[0].get_attribute("textContent").strip()
+
+            # Check if destination exists
             if (len(code_items) > 2):
                 dest = code_items[1].get_attribute("textContent").strip()
         except TimeoutException:
+                # No aircraft info exists (blocked), skipping...
                 print(f"SKIPPING {callsign}...")
-                return 404, origin, dest
+                # Return error code
+                return 404, default, default
 
+    # Ensure origin / dest is not empty or set as "last seen near..."
+    if (len(origin) < 1 or origin == "last seen near"):
+        origin = default
     if (len(dest) < 1 or dest == "last seen near"):
         dest = default
 
+    # Return success code and origin and dest
     return 200, origin, dest
 
 

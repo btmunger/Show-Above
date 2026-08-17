@@ -1,12 +1,13 @@
 # A project by Brian Munger
 
+from dataclasses import dataclass
 from winrt.windows.devices.geolocation import (
     Geolocator,
     PositionAccuracy,
     GeolocationAccessStatus
 )
-
 from sys import platform
+
 import requests
 import math
 import time
@@ -22,6 +23,14 @@ from selenium.common.exceptions import TimeoutException
 
 lat = 0.0
 lng = 0.0
+
+@dataclass
+class DisplayOptions:
+    show_on_ground: bool
+    show_GA: bool
+    debug: bool
+
+curr_display_option = DisplayOptions(show_on_ground=False, show_GA=False, debug=True)
 
 # Retrieve operating sys specific path
 def path_from_os():
@@ -94,40 +103,9 @@ def set_user_location():
     lat = round(coordinate.latitude, 2) 
     lng = round(coordinate.longitude, 2)
 
-    print(lat, lng)
-    #time.sleep(5)
-
-
-# Method for getting the origin airport information
-def get_origin_airport(icao24):
-    now = int(time.time())
-    one_hour_ago = now - 3600
-
-    # OpenSky API request URL
-    request_url = (
-        "https://opensky-network.org/api/flights/aircraft"
-        f"?icao24={icao24}"
-        f"&begin={one_hour_ago}"
-        f"&end={now}"
-    )
-
-    # Request (no auth required!)
-    res = requests.get(request_url, timeout=10)
-
-    if res.status_code != 200:
-        #print(f"Unable to reach OpenSky API. Status {res.status_code}")
-        return "Unknown", "Unknown" # Error code 429 = too many requests 
-    
-    flights = res.json()
-
-    if flights: 
-        last = flights[-1]
-        return (
-            last.get("estDepartureAirport") or "Unknown",
-            last.get("estArrivalAirport") or "Unknown"
-        )
-
-    return "Unknown", "Unknown"
+    if (curr_display_option.debug):
+        print(lat, lng)
+        time.sleep(3)
 
 
 # Method for retreiving flights above the user in a certain radius
@@ -169,8 +147,12 @@ def retreive_flights(driver):
     # Print callsign and altitude
     for plane in data.get("states", []):
         callsign = plane[1].strip() if plane[1] else "N/A"
+        if (callsign == "N/A"):
+            continue
 
         alt_m = plane[7] if plane[7] is not None else 0.0
+        if (curr_display_option.show_on_ground == False and alt_m == 0):
+            continue
         # Convert from meters to feet
         alt_ft = alt_m * 3.28084    
 
@@ -198,20 +180,24 @@ def find_origin_dest(callsign, driver):
     except TimeoutException:
         try:
             # General aviation aircraft
-            code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "displayFlexElementContainer")))
-            origin = code_items[0].get_attribute("textContent").strip()
+            if (curr_display_option.show_GA):
+                code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "displayFlexElementContainer")))
+                origin = code_items[0].get_attribute("textContent").strip()
 
-            # Check if destination exists
-            if (len(code_items) > 2):
-                dest = code_items[1].get_attribute("textContent").strip()
+                # Check if destination exists
+                if (len(code_items) > 2):
+                    dest = code_items[1].get_attribute("textContent").strip()
+            else: 
+                return 400, default, default
         except TimeoutException:
                 # No aircraft info exists (blocked), skipping...
-                print(f"SKIPPING {callsign}...")
+                if(curr_display_option.debug):
+                    print(f"SKIPPING {callsign}...")
                 # Return error code
                 return 404, default, default
 
     # Ensure origin / dest is not empty or set as "last seen near..."
-    if (len(origin) < 1 or origin == "last seen near"):
+    if (len(origin) < 1 or origin == "first seen near"):
         origin = default
     if (len(dest) < 1 or dest == "last seen near"):
         dest = default

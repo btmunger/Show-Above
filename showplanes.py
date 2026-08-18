@@ -31,7 +31,7 @@ class DisplayOptions:
     show_GA: bool
     debug: bool
 
-curr_display_option = DisplayOptions(radius=20, show_on_ground=False, show_GA=False, debug=True)
+curr_display_option = DisplayOptions(radius=20, show_on_ground=False, show_GA=True, debug=True)
 
 # Retrieve operating sys specific path
 def path_from_os():
@@ -168,6 +168,8 @@ def retreive_flights(driver):
             continue
 
         if (curr_display_option.show_GA == False and possible_ga_flight(callsign)):
+            if (curr_display_option.debug):
+                print(f"SKIPPING {callsign} (GA Traffic)...")
             continue
 
         # Aircraft speed    
@@ -217,7 +219,7 @@ def find_origin_dest(callsign, driver):
         except TimeoutException:
                 # No aircraft info exists (blocked), skipping...
                 if(curr_display_option.debug):
-                    print(f"SKIPPING {callsign}...")
+                    print(f"SKIPPING {callsign} (Blocked)...")
                 # Return error code
                 return 404, default, default
 

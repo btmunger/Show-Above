@@ -26,11 +26,12 @@ lng = 0.0
 
 @dataclass
 class DisplayOptions:
+    radius: int
     show_on_ground: bool
     show_GA: bool
     debug: bool
 
-curr_display_option = DisplayOptions(show_on_ground=False, show_GA=False, debug=True)
+curr_display_option = DisplayOptions(radius=20, show_on_ground=False, show_GA=False, debug=True)
 
 # Retrieve operating sys specific path
 def path_from_os():
@@ -104,8 +105,22 @@ def set_user_location():
     lng = round(coordinate.longitude, 2)
 
     if (curr_display_option.debug):
-        print(lat, lng)
+        print(f"User location: {lat} {lng}")
         time.sleep(3)
+
+
+# Method for checking if a callsign may be associated with a GA flight
+# NOTE: A lot of these are PHX area specific :)
+def possible_ga_flight(callsign):
+    if ((callsign[0] == 'N' and callsign[1].isdigit())     # case 1: Nxxxxx (Basic Aircraft Identifier)
+        or callsign[:3] == "OXF"                           # case 2: OXFxxxx (Oxford Aviation Academy)
+        or callsign[:3] == "ASI"                           # case 3: ASIxxxx (AeroGuard Flight Training Center)
+        or callsign[:3] == "NDU"                           # case 4: NDUxxxx (University of North Dakota)
+        or callsign[:3] == "SCA"                           # case 5: SCAxxxx (Sierra Charlie Aviation )
+        or callsign[:3] == "VWA"):                         # case 6: VWAxxxx (Venture West Aviation)
+        return True
+
+    return False
 
 
 # Method for retreiving flights above the user in a certain radius
@@ -113,8 +128,8 @@ def retreive_flights(driver):
     global lat
     global lng
 
-    # Define boundaries (4 miles)
-    delta_mi = 20
+    # Define boundaries
+    delta_mi = curr_display_option.radius
     delta_lat = delta_mi / 69.0
     delta_lon = delta_mi / (69.0 * math.cos(math.radians(lat)))
 
@@ -127,7 +142,7 @@ def retreive_flights(driver):
         f"&lomax={lng + delta_lon}"
     )
 
-    # Request (no auth required!)
+    # Request (no auth required)
     res = requests.get(request_url, timeout=10)
 
     # Display error if unable to connect
@@ -146,22 +161,32 @@ def retreive_flights(driver):
 
     # Print callsign and altitude
     for plane in data.get("states", []):
+        # Aircraft callsign
         callsign = plane[1].strip() if plane[1] else "N/A"
-        if (callsign == "N/A"):
+        # Skip empty callsign or Career Track flights (blocked from FlightAware)
+        if (callsign == "N/A" or callsign[:3] == "CXK"):
             continue
 
+        if (curr_display_option.show_GA == False and possible_ga_flight(callsign)):
+            continue
+
+        # Aircraft speed    
+        spd_knts = plane[9] * 1.944
+
+        # Aircraft altiitude 
         alt_m = plane[7] if plane[7] is not None else 0.0
         if (curr_display_option.show_on_ground == False and alt_m == 0):
             continue
         # Convert from meters to feet
-        alt_ft = alt_m * 3.28084    
+        alt_ft = (alt_m * 3.28084 )
 
         ret_code, origin, dest = find_origin_dest(callsign, driver)
 
         if (ret_code == 200):
-            print(f"{callsign} {alt_ft:.0f} ft from {origin} to {dest}")
+            print(f"{callsign} {alt_ft:.0f}ft at {spd_knts:.0f}kts from {origin} to {dest}")
 
 
+# Method for finding the origin and dest airports via FlightAware
 def find_origin_dest(callsign, driver):
     default = "UNKNOWN"
     origin = default
@@ -170,7 +195,7 @@ def find_origin_dest(callsign, driver):
     # Scrape FlightAware for aircraft origin and destination info
     url = f"https://www.flightaware.com/live/flight/{callsign}"
     driver.get(url)
-    wait = WebDriverWait(driver, 3)
+    wait = WebDriverWait(driver, 4)
 
     try: 
         # Commercial aircraft 

@@ -31,7 +31,7 @@ class DisplayOptions:
     show_GA: bool
     debug: bool
 
-curr_display_option = DisplayOptions(radius=20, show_on_ground=False, show_GA=True, debug=True)
+curr_display_option = DisplayOptions(radius=20, show_on_ground=False, show_GA=False, debug=False)
 
 # Retrieve operating sys specific path
 def path_from_os():
@@ -182,14 +182,15 @@ def retreive_flights(driver):
         # Convert from meters to feet
         alt_ft = (alt_m * 3.28084 )
 
-        ret_code, origin, dest = find_origin_dest(callsign, driver)
+        ret_code, origin, dest = find_route(callsign, driver)
 
         if (ret_code == 200):
-            print(f"{callsign} {alt_ft:.0f}ft at {spd_knts:.0f}kts from {origin} to {dest}")
+            acft_type = driver.find_element(By.XPATH, '//*[@id="mainBody"]/div[1]/div[2]/div[4]/div[9]/div[1]/div/div[1]/div[2]/a').text.strip()
+            print(f"{callsign}({acft_type}) {alt_ft:.0f}ft at {spd_knts:.0f}kts from {origin} to {dest}")
 
 
 # Method for finding the origin and dest airports via FlightAware
-def find_origin_dest(callsign, driver):
+def find_route(callsign, driver):
     default = "UNKNOWN"
     origin = default
     dest = default
@@ -204,6 +205,7 @@ def find_origin_dest(callsign, driver):
         code_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "flightPageSummaryAirportLink")))
         origin = code_items[0].text[-3:]
         dest = code_items[1].text[-3:]
+
     except TimeoutException:
         try:
             # General aviation aircraft

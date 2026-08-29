@@ -21,6 +21,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
+from showlogo import print_image
+
 lat = 0.0
 lng = 0.0
 
@@ -54,6 +56,7 @@ def init_webdriver():
     #options.add_argument("--headless")          # Comment the next two arguments to have the webdriver run on your screen
     options.add_argument("--disable-gpu")
     options.add_argument("start-maximized")
+    options.add_argument("--headless")
     options.add_experimental_option(
         "prefs", {
             # Block image loading
@@ -159,6 +162,8 @@ def retreive_flights(driver):
         print(f"No aircraft currently overhead in a {delta_mi} mi radius")
         return
 
+    displayed_plane = False
+
     # Print callsign and altitude
     for plane in data.get("states", []):
         # Aircraft callsign
@@ -186,7 +191,19 @@ def retreive_flights(driver):
 
         if (ret_code == 200):
             acft_type = driver.find_element(By.XPATH, '//*[@id="mainBody"]/div[1]/div[2]/div[4]/div[9]/div[1]/div/div[1]/div[2]/a').text.strip()
+
+            os.system("cls")
+            print_image(f"logos/{callsign[:3].lower()}.png")
             print(f"{callsign}({acft_type}) {alt_ft:.0f}ft at {spd_knts:.0f}kts from {origin} to {dest}")
+            displayed_plane = True
+
+            # Display one plane per refresh cycle
+            time.sleep(5)
+            os.system("cls")
+
+    if not displayed_plane:
+        print(f"No displayable aircraft currently overhead in a {delta_mi} mi radius")
+        time.sleep(5)
 
 
 # Method for finding the origin and dest airports via FlightAware

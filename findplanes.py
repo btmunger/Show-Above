@@ -204,7 +204,6 @@ def retreive_flights(driver):
 
             # Display one plane per refresh cycle
             time.sleep(5)
-            os.system("cls")
 
     if not displayed_plane:
         print(f"No displayable aircraft currently overhead in a {delta_mi} mi radius")

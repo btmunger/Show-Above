@@ -5,7 +5,7 @@ from PIL import Image
 RESET = "\033[0m"
 
 
-def print_image(path, width=35):
+def print_image(path, width=45):
     img = None
     try: 
         img = Image.open(path).convert("RGBA")

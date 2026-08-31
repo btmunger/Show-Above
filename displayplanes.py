@@ -8,13 +8,11 @@ WHITE_TEXT = "\033[37m"
 
 def print_image(path, text="", height=45, width=None):
     img = None
+    print()
     try: 
         img = Image.open(path).convert("RGBA")
     except: 
-        print(f"{RESET}{WHITE_TEXT}{text}{RESET}")
-        return
-
-    print()
+        img = Image.open("logos/default.png").convert("RGBA")
 
     # Crop fully transparent padding around the logo
     bbox = img.getbbox()
@@ -32,12 +30,14 @@ def print_image(path, text="", height=45, width=None):
         aspect_ratio = img.width / img.height
         width = max(1, round(height * aspect_ratio))
 
+    # Reset image sizing
     img = img.resize((width, height))
 
+    # Calculate rows number
     rows = range(0, img.height, 2)
     text_lines = text.splitlines()
     text_start_row = max(0, (len(rows) - len(text_lines)) // 2)
-
+    
     for row_number, y in enumerate(rows):
         for x in range(img.width):
             top = img.getpixel((x, y))

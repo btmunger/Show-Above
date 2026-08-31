@@ -3,14 +3,15 @@
 from PIL import Image
 
 RESET = "\033[0m"
+WHITE_TEXT = "\033[37m"
 
 
-def print_image(path, text="", width=45):
+def print_image(path, text="", height=45, width=None):
     img = None
     try: 
         img = Image.open(path).convert("RGBA")
     except: 
-        print(text)
+        print(f"{RESET}{WHITE_TEXT}{text}{RESET}")
         return
 
     print()
@@ -20,13 +21,16 @@ def print_image(path, text="", width=45):
     if bbox:
         img = img.crop(bbox)
 
-    # Maintain aspect ratio
-    aspect_ratio = img.height / img.width
-    height = max(2, int(width * aspect_ratio))
+    # Keep logos the same height while preserving each logo's aspect ratio.
+    height = max(2, int(height))
 
     # Need an even number of vertical pixels
     if height % 2:
         height += 1
+
+    if width is None:
+        aspect_ratio = img.width / img.height
+        width = max(1, round(height * aspect_ratio))
 
     img = img.resize((width, height))
 
@@ -74,7 +78,10 @@ def print_image(path, text="", width=45):
                 )
 
         if text_start_row <= row_number < text_start_row + len(text_lines):
-            print(f"  {text_lines[row_number - text_start_row]}", end="")
+            print(
+                f"{RESET}{WHITE_TEXT}  {text_lines[row_number - text_start_row]}{RESET}",
+                end=""
+            )
 
         print(RESET)
 
